@@ -194,4 +194,26 @@ static PDKeychainBindingsController *sharedInstance = nil;
     [super setValue:value forKeyPath:keyPath];
 }
 
+
+// Hsoi 2013-06-25 - purges all items from the app's Keychain.
+//
+// Added because the keychain data sticks around forever, but this may not be desired. So in my iOS app,
+// if I detect all "first launch" I'll purge to ensure we're using fresh data and don't risk stale
+// data coming back into the app.
+//
+// I did this for iOS onl. I don't know if this pans over to Mac OS X or not. Presently is no-op on Mac OS X.
+- (void)purge {
+#if TARGET_OS_IPHONE
+    NSArray *secItemClasses = @[(__bridge id)kSecClassGenericPassword,
+                                (__bridge id)kSecClassInternetPassword,
+                                (__bridge id)kSecClassCertificate,
+                                (__bridge id)kSecClassKey,
+                                (__bridge id)kSecClassIdentity];
+    for (id secItemClass in secItemClasses) {
+        NSDictionary *spec = @{(__bridge id)kSecClass:secItemClass};
+        SecItemDelete((__bridge CFDictionaryRef)spec);
+    }
+#endif
+}
+
 @end

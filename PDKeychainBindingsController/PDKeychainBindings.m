@@ -37,4 +37,10 @@
     return (NSString *) [self objectForKey:defaultName];
 }
 
+
+// Hsoi 2013-06-25 - added
+- (void)purge {
+    [[PDKeychainBindingsController sharedKeychainBindingsController] purge];
+}
+
 @end

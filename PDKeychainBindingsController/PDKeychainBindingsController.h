@@ -24,5 +24,9 @@
 - (NSString*)stringForKey:(NSString*)key;
 - (BOOL)storeString:(NSString*)string forKey:(NSString*)key;
 
+
+// Hsoi 2013-06-25 - added, as a mechanism to purge all Keychain items.
+- (void)purge;
+
 @end
 
