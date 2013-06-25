@@ -24,6 +24,11 @@
 - (NSString*)stringForKey:(NSString*)key;
 - (BOOL)storeString:(NSString*)string forKey:(NSString*)key;
 
+// Hsoi 2013-06-25 - Added as a more generalized way to store stuff in the Keychain.
+// Only available in iOS (no-op in Mac OS X).
+- (NSData*)dataForKey:(NSString*)key;
+- (BOOL)storeData:(NSData*)data forKey:(NSString*)key;
+
 
 // Hsoi 2013-06-25 - added, as a mechanism to purge all Keychain items.
 - (void)purge;

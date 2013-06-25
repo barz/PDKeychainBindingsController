@@ -29,8 +29,39 @@ static PDKeychainBindingsController *sharedInstance = nil;
 	return [[NSBundle mainBundle] bundleIdentifier];
 }
 
+
 - (NSString*)stringForKey:(NSString*)key {
-	OSStatus status;
+    NSString* string = nil;
+    
+#if TARGET_OS_IPHONE
+    NSData*     stringData = [self dataForKey:key];
+    if (stringData != nil) {
+        string = [[NSString alloc] initWithData:stringData encoding:NSUTF8StringEncoding];
+    }    
+#else //OSX
+    //SecKeychainItemRef item = NULL;
+    UInt32 stringLength;
+    void *stringBuffer;
+    OSStatus status = SecKeychainFindGenericPassword(NULL, (uint) [[self serviceName] lengthOfBytesUsingEncoding:NSUTF8StringEncoding], [[self serviceName] UTF8String],
+                                            (uint) [key lengthOfBytesUsingEncoding:NSUTF8StringEncoding], [key UTF8String],
+                                            &stringLength, &stringBuffer, NULL);
+
+	if (status == noErr) {
+        string = [[NSString alloc] initWithBytes:stringBuffer length:stringLength encoding:NSUTF8StringEncoding];
+        SecKeychainItemFreeAttributesAndData(NULL, stringBuffer);
+    }
+#endif
+    
+	return string;	
+}
+
+
+// Hsoi 2013-06-2013 - added as a more generalized way to store stuff in the keychain (since the original
+// author ultimately is storing stuff as NSData anyways).
+//
+// I only added iOS support because I'm not using OS X and not going to maintain that.
+- (NSData*)dataForKey:(NSString *)key {
+    NSData* theData = nil;
 #if TARGET_OS_IPHONE
     NSDictionary *query = [NSDictionary dictionaryWithObjectsAndKeys:(id)kCFBooleanTrue, kSecReturnData,
                            kSecClassGenericPassword, kSecClass,
@@ -39,37 +70,27 @@ static PDKeychainBindingsController *sharedInstance = nil;
                            nil];
 	
     CFDataRef stringData = NULL;
-    status = SecItemCopyMatching((__bridge CFDictionaryRef)query, (CFTypeRef*)&stringData);
-#else //OSX
-    //SecKeychainItemRef item = NULL;
-    UInt32 stringLength;
-    void *stringBuffer;
-    status = SecKeychainFindGenericPassword(NULL, (uint) [[self serviceName] lengthOfBytesUsingEncoding:NSUTF8StringEncoding], [[self serviceName] UTF8String],
-                                            (uint) [key lengthOfBytesUsingEncoding:NSUTF8StringEncoding], [key UTF8String],
-                                            &stringLength, &stringBuffer, NULL);
-    #endif
-	if(status) return nil;
-	
-#if TARGET_OS_IPHONE
-    NSString *string = [[NSString alloc] initWithData:(__bridge id)stringData encoding:NSUTF8StringEncoding];
-    CFRelease(stringData);
-#else //OSX
-    NSString *string = [[NSString alloc] initWithBytes:stringBuffer length:stringLength encoding:NSUTF8StringEncoding];
-    SecKeychainItemFreeAttributesAndData(NULL, stringBuffer);
+    OSStatus  status = SecItemCopyMatching((__bridge CFDictionaryRef)query, (CFTypeRef*)&stringData);
+    if (status == errSecSuccess) {
+        theData = CFBridgingRelease(stringData);
+    }
 #endif
-	return string;	
+    return theData;
 }
 
 
 - (BOOL)storeString:(NSString*)string forKey:(NSString*)key {
-	if (!string)  {
-		//Need to delete the Key 
+
 #if TARGET_OS_IPHONE
-        NSDictionary *spec = [NSDictionary dictionaryWithObjectsAndKeys:(__bridge id)kSecClassGenericPassword, kSecClass,
-                              key, kSecAttrAccount,[self serviceName], kSecAttrService, nil];
-        
-        return !SecItemDelete((__bridge CFDictionaryRef)spec);
-#else //OSX
+    if (string == nil) {
+        return [self storeData:nil forKey:key];
+    }
+    else {
+        NSData *stringData = [string dataUsingEncoding:NSUTF8StringEncoding];
+        return [self storeData:stringData forKey:key];
+    }
+#else
+	if (!string)  {
         SecKeychainItemRef item = NULL;
         OSStatus status = SecKeychainFindGenericPassword(NULL, (uint) [[self serviceName] lengthOfBytesUsingEncoding:NSUTF8StringEncoding], [[self serviceName] UTF8String],
                                                          (uint) [key lengthOfBytesUsingEncoding:NSUTF8StringEncoding], [key UTF8String],
@@ -77,24 +98,7 @@ static PDKeychainBindingsController *sharedInstance = nil;
         if(status) return YES;
         if(!item) return YES;
         return !SecKeychainItemDelete(item);
-#endif
     } else {
-#if TARGET_OS_IPHONE
-        NSData *stringData = [string dataUsingEncoding:NSUTF8StringEncoding];
-        NSDictionary *spec = [NSDictionary dictionaryWithObjectsAndKeys:(__bridge id)kSecClassGenericPassword, kSecClass,
-                              key, kSecAttrAccount,[self serviceName], kSecAttrService, nil];
-        
-        if(!string) {
-            return !SecItemDelete((__bridge CFDictionaryRef)spec);
-        }else if([self stringForKey:key]) {
-            NSDictionary *update = [NSDictionary dictionaryWithObject:stringData forKey:(__bridge id)kSecValueData];
-            return !SecItemUpdate((__bridge CFDictionaryRef)spec, (__bridge CFDictionaryRef)update);
-        }else{
-            NSMutableDictionary *data = [NSMutableDictionary dictionaryWithDictionary:spec];
-            [data setObject:stringData forKey:(__bridge id)kSecValueData];
-            return !SecItemAdd((__bridge CFDictionaryRef)data, NULL);
-        }
-#else //OSX
         SecKeychainItemRef item = NULL;
         OSStatus status = SecKeychainFindGenericPassword(NULL, (uint) [[self serviceName] lengthOfBytesUsingEncoding:NSUTF8StringEncoding], [[self serviceName] UTF8String],
                                                          (uint) [key lengthOfBytesUsingEncoding:NSUTF8StringEncoding], [key UTF8String],
@@ -115,9 +119,40 @@ static PDKeychainBindingsController *sharedInstance = nil;
                                                   (uint) [key lengthOfBytesUsingEncoding:NSUTF8StringEncoding], [key UTF8String],
                                                   (uint) [string lengthOfBytesUsingEncoding:NSUTF8StringEncoding],[string UTF8String],
                                                   NULL);
-#endif
     }
+#endif
 }
+
+
+// Hsoi 2013-06-2013 - added as a more generalized way to store stuff in the keychain (since the original
+// author ultimately is storing stuff as NSData anyways).
+//
+// I only added iOS support because I'm not using OS X and not going to maintain that.
+- (BOOL)storeData:(NSData*)data forKey:(NSString*)key {
+    BOOL stored = NO;
+    
+#if TARGET_OS_IPHONE
+    NSDictionary *spec = [NSDictionary dictionaryWithObjectsAndKeys:(__bridge id)kSecClassGenericPassword, kSecClass,
+                          key, kSecAttrAccount,[self serviceName], kSecAttrService, nil];
+    
+    if (data == nil) {
+        stored = (SecItemDelete((__bridge CFDictionaryRef)spec) == errSecSuccess);
+    }
+    else if ([self dataForKey:key]) {
+        NSDictionary* update = [NSDictionary dictionaryWithObject:data forKey:(__bridge id)kSecValueData];
+        stored = (SecItemUpdate((__bridge CFDictionaryRef)spec, (__bridge CFDictionaryRef)update) == errSecSuccess);
+    }
+    else {
+        NSMutableDictionary* dataDict = [NSMutableDictionary dictionaryWithDictionary:spec];
+        [dataDict setObject:data forKey:(__bridge id)kSecValueData];
+        stored = (SecItemAdd((__bridge CFDictionaryRef)dataDict, NULL) == errSecSuccess);
+    }
+#endif
+    
+    return stored;
+}
+
+
 
 #pragma mark -
 #pragma mark Singleton Stuff
