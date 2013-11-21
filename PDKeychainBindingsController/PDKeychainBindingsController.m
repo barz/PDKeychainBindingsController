@@ -80,7 +80,12 @@ static PDKeychainBindingsController *sharedInstance = nil;
 
 
 - (BOOL)storeString:(NSString*)string forKey:(NSString*)key {
+    return [self storeString:string forKey:key accessibleAttribute:kSecAttrAccessibleWhenUnlocked];
+}
 
+- (BOOL)storeString:(NSString*)string forKey:(NSString*)key accessibleAttribute:(CFTypeRef)accessibleAttribute {
+	if (!string)  {
+		//Need to delete the Key 
 #if TARGET_OS_IPHONE
     if (string == nil) {
         return [self storeData:nil forKey:key];
@@ -205,8 +210,11 @@ static PDKeychainBindingsController *sharedInstance = nil;
     return [super valueForKeyPath:keyPath];
 }
 
-
 - (void)setValue:(id)value forKeyPath:(NSString *)keyPath {
+    [self setValue:value forKeyPath:keyPath accessibleAttribute:kSecAttrAccessibleWhenUnlocked];
+}
+
+- (void)setValue:(id)value forKeyPath:(NSString *)keyPath accessibleAttribute:(CFTypeRef)accessibleAttribute {
     NSRange firstSeven=NSMakeRange(0, 7);
     if (NSEqualRanges([keyPath rangeOfString:@"values."],firstSeven)) {
         //This is a values keyPath, so we need to check the keychain
@@ -214,15 +222,15 @@ static PDKeychainBindingsController *sharedInstance = nil;
         NSString *retrievedString = [self stringForKey:subKeyPath];
         if (retrievedString) {
             if (![value isEqualToString:retrievedString]) {
-                [self storeString:value forKey:subKeyPath];
+                [self storeString:value forKey:subKeyPath accessibleAttribute:accessibleAttribute];
             }
             if (![_valueBuffer objectForKey:subKeyPath] || ![[_valueBuffer objectForKey:subKeyPath] isEqualToString:value]) {
                 //buffer has wrong value, need to update it
-                [_valueBuffer setValue:value forKey:subKeyPath];
+                [_valueBuffer setValue:value forKey:subKeyPath ];
             }
         } else {
             //First time to set it
-            [self storeString:value forKey:subKeyPath];
+            [self storeString:value forKey:subKeyPath accessibleAttribute:accessibleAttribute];
             [_valueBuffer setValue:value forKey:subKeyPath];
         }
     } 

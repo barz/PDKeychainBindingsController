@@ -23,6 +23,8 @@
 
 - (NSString*)stringForKey:(NSString*)key;
 - (BOOL)storeString:(NSString*)string forKey:(NSString*)key;
+- (BOOL)storeString:(NSString*)string forKey:(NSString*)key accessibleAttribute:(CFTypeRef)accessibleAttribute;
+- (void)setValue:(id)value forKeyPath:(NSString *)keyPath accessibleAttribute:(CFTypeRef)accessibleAttribute;
 
 // Hsoi 2013-06-25 - Added as a more generalized way to store stuff in the Keychain.
 // Only available in iOS (no-op in Mac OS X).
