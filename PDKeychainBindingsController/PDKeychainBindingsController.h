@@ -30,6 +30,7 @@
 // Only available in iOS (no-op in Mac OS X).
 - (NSData*)dataForKey:(NSString*)key;
 - (BOOL)storeData:(NSData*)data forKey:(NSString*)key;
+- (BOOL)storeData:(NSData*)data forKey:(NSString*)key accessibleAttribute:(CFTypeRef)accessibleAttribute;
 
 
 // Hsoi 2013-06-25 - added, as a mechanism to purge all Keychain items.

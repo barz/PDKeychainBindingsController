@@ -11,13 +11,11 @@
 
 @implementation PDKeychainBindings
 
-+ (PDKeychainBindings *)sharedKeychainBindings
-{
++ (PDKeychainBindings *)sharedKeychainBindings {
 	return [[PDKeychainBindingsController sharedKeychainBindingsController] keychainBindings];
 }
 
 - (id)objectForKey:(NSString *)defaultName {
-    //return [[[PDKeychainBindingsController sharedKeychainBindingsController] valueBuffer] objectForKey:defaultName];
     return [[PDKeychainBindingsController sharedKeychainBindingsController] valueForKeyPath:[NSString stringWithFormat:@"values.%@",defaultName]];
 }
 

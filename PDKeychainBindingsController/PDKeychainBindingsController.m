@@ -35,7 +35,7 @@ static PDKeychainBindingsController *sharedInstance = nil;
     
 #if TARGET_OS_IPHONE
     NSData*     stringData = [self dataForKey:key];
-    if (stringData != nil) {
+    if (stringData) {
         string = [[NSString alloc] initWithData:stringData encoding:NSUTF8StringEncoding];
     }    
 #else //OSX
@@ -63,11 +63,11 @@ static PDKeychainBindingsController *sharedInstance = nil;
 - (NSData*)dataForKey:(NSString *)key {
     NSData* theData = nil;
 #if TARGET_OS_IPHONE
-    NSDictionary *query = [NSDictionary dictionaryWithObjectsAndKeys:(id)kCFBooleanTrue, kSecReturnData,
-                           kSecClassGenericPassword, kSecClass,
-                           key, kSecAttrAccount,
-                           [self serviceName], kSecAttrService,
-                           nil];
+    NSDictionary*   query = @{(__bridge id)kSecReturnData:(__bridge id)kCFBooleanTrue,
+                              (__bridge id)kSecClass:(__bridge id)kSecClassGenericPassword,
+                              (__bridge id)kSecAttrAccount:key,
+                              (__bridge id)kSecAttrService:[self serviceName]
+                              };
 	
     CFDataRef stringData = NULL;
     OSStatus  status = SecItemCopyMatching((__bridge CFDictionaryRef)query, (CFTypeRef*)&stringData);
@@ -84,15 +84,13 @@ static PDKeychainBindingsController *sharedInstance = nil;
 }
 
 - (BOOL)storeString:(NSString*)string forKey:(NSString*)key accessibleAttribute:(CFTypeRef)accessibleAttribute {
-	if (!string)  {
-		//Need to delete the Key 
 #if TARGET_OS_IPHONE
-    if (string == nil) {
-        return [self storeData:nil forKey:key];
+    if (!string) {
+        return [self storeData:nil forKey:key accessibleAttribute:accessibleAttribute];
     }
     else {
-        NSData *stringData = [string dataUsingEncoding:NSUTF8StringEncoding];
-        return [self storeData:stringData forKey:key];
+        NSData* stringData = [string dataUsingEncoding:NSUTF8StringEncoding];
+        return [self storeData:stringData forKey:key accessibleAttribute:accessibleAttribute];
     }
 #else
 	if (!string)  {
@@ -134,22 +132,34 @@ static PDKeychainBindingsController *sharedInstance = nil;
 //
 // I only added iOS support because I'm not using OS X and not going to maintain that.
 - (BOOL)storeData:(NSData*)data forKey:(NSString*)key {
+    return [self storeData:data forKey:key accessibleAttribute:kSecAttrAccessibleWhenUnlocked];
+}
+
+
+- (BOOL)storeData:(NSData*)data forKey:(NSString*)key accessibleAttribute:(CFTypeRef)accessibleAttribute {
     BOOL stored = NO;
     
 #if TARGET_OS_IPHONE
-    NSDictionary *spec = [NSDictionary dictionaryWithObjectsAndKeys:(__bridge id)kSecClassGenericPassword, kSecClass,
-                          key, kSecAttrAccount,[self serviceName], kSecAttrService, nil];
+    NSDictionary *spec = @{(__bridge id)kSecClass:(__bridge id)kSecClassGenericPassword,
+                           (__bridge id)kSecAttrAccount:key,
+                           (__bridge id)kSecAttrService:[self serviceName]
+                           };
     
-    if (data == nil) {
+    if (!data) {
         stored = (SecItemDelete((__bridge CFDictionaryRef)spec) == errSecSuccess);
     }
     else if ([self dataForKey:key]) {
-        NSDictionary* update = [NSDictionary dictionaryWithObject:data forKey:(__bridge id)kSecValueData];
+        NSDictionary *update = @{
+                                 (__bridge id)kSecAttrAccessible:(__bridge id)accessibleAttribute,
+                                 (__bridge id)kSecValueData:data
+                                };
+        
         stored = (SecItemUpdate((__bridge CFDictionaryRef)spec, (__bridge CFDictionaryRef)update) == errSecSuccess);
     }
     else {
-        NSMutableDictionary* dataDict = [NSMutableDictionary dictionaryWithDictionary:spec];
-        [dataDict setObject:data forKey:(__bridge id)kSecValueData];
+        NSMutableDictionary* dataDict = [[NSMutableDictionary alloc] initWithDictionary:spec];
+        dataDict[(__bridge id)kSecValueData] = data;
+        dataDict[(__bridge id)kSecAttrAccessible] =(__bridge id)accessibleAttribute;
         stored = (SecItemAdd((__bridge CFDictionaryRef)dataDict, NULL) == errSecSuccess);
     }
 #endif

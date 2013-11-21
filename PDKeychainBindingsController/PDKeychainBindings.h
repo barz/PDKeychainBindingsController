@@ -27,7 +27,6 @@
 
 - (NSString *)stringForKey:(NSString *)defaultName;
 
-// Hsoi 2013-06-25 - added, as a mechanism to purge all Keychain items.
-- (void)purge;
+- (void)purge;  // Hsoi 2013-06-25 - added, as a mechanism to purge all Keychain items.
 
 @end
